@@ -15,7 +15,7 @@ func main() {
 	flag.BoolVar(&replaceMode, "r", false, "Replace the value instead of appending it")
 
 	var fullMode bool
-	flag.BoolVar(&fullMode, "f", false, "Modify the parameters one by one, outputting all combinations")
+	flag.BoolVar(&fullMode, "f", false, "Modify the parameters one by one")
 
 	flag.Parse()
 

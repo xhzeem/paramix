@@ -11,7 +11,7 @@ go install github.com/xhzeem/paramix@latest
 
 ```python
 -r  [Relace Mode]  Replace the value instead of appending it.
--s  [Signle Mode]  Modify the parameters one by one.
+-s  [Single Mode]  Modify the parameters one by one.
 ```
 
 ## Usage

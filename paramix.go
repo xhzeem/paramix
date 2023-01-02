@@ -14,8 +14,8 @@ func main() {
 	var replaceMode bool
 	flag.BoolVar(&replaceMode, "r", false, "Replace the value instead of appending it")
 
-	var fullMode bool
-	flag.BoolVar(&fullMode, "f", false, "Modify the parameters one by one")
+	var singleMode bool
+	flag.BoolVar(&singleMode, "s", false, "Modify the parameters one by one")
 
 	flag.Parse()
 
@@ -45,7 +45,7 @@ func main() {
 		seen[key] = true
 
 		// Modify the parameters one by one if the `-s` flag is set
-		if fullMode {
+		if singleMode {
 			// Save the original URL
 			originalURL := u.String()
 

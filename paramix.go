@@ -22,7 +22,7 @@ func main() {
 	flag.BoolVar(&replaceMode, "r", false, "Replace the value instead of appending it")
 
 	var singleMode bool
-	flag.BoolVar(&singleMode, "s", false, "Modify the single parameter at a time")
+	flag.BoolVar(&singleMode, "s", false, "Modify a single parameter at a time")
 
 	var decodeMode bool
 	flag.BoolVar(&decodeMode, "d", false, "URL decode the values of the paramters")
@@ -44,13 +44,13 @@ func main() {
 		if addParam != "" {
 			if u.RawQuery == "" {
 				// No parameters in the URL, so just add the new parameter
-				u.RawQuery = addParam + "="
+				u.RawQuery = addParam + "=" + newValue
 			} else {
 				// There are already parameters in the URL, so check if the specified parameter exists
 				qs := u.Query()
 				if _, exists := qs[addParam]; !exists {
 					// The parameter doesn't exist, so add it
-					qs.Set(addParam, "")
+					qs.Set(addParam, newValue)
 					if (decodeMode){
 						u.RawQuery, _ = url.QueryUnescape(qs.Encode())
 					} else {
@@ -92,7 +92,11 @@ func main() {
 						if replaceMode {
 							qs.Set(p, newValue)
 						} else {
-							qs.Set(p, u.Query().Get(p)+newValue)
+							if (u.Query().Get(p) != newValue) {
+								qs.Set(p, u.Query().Get(p)+newValue)
+							} else {
+								qs.Set(p, newValue)
+							}
 						}
 					} else {
 						qs.Set(p, u.Query().Get(p))

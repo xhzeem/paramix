@@ -15,7 +15,10 @@ func main() {
 	flag.BoolVar(&replaceMode, "r", false, "Replace the value instead of appending it")
 
 	var singleMode bool
-	flag.BoolVar(&singleMode, "s", false, "Modify the parameters one by one")
+	flag.BoolVar(&singleMode, "s", false, "Modify the single parameter at a time")
+
+	var addParam string
+	flag.StringVar(&addParam, "p", "", "Add a custom parameter to the URL")
 
 	flag.Parse()
 
@@ -28,6 +31,22 @@ func main() {
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "failed to parse url %s [%s]\n", sc.Text(), err)
 			continue
+		}
+
+		// Add the parameter to the URL if the `p` flag is specified
+		if addParam != "" {
+			if u.RawQuery == "" {
+				// No parameters in the URL, so just add the new parameter
+				u.RawQuery = addParam + "="
+			} else {
+				// There are already parameters in the URL, so check if the specified parameter exists
+				qs := u.Query()
+				if _, exists := qs[addParam]; !exists {
+					// The parameter doesn't exist, so add it
+					qs.Set(addParam, "")
+					u.RawQuery = qs.Encode()
+				}
+			}
 		}
 
 		pp := make([]string, 0)
@@ -56,7 +75,6 @@ func main() {
 					fmt.Fprintf(os.Stderr, "failed to parse url %s [%s]\n", originalURL, err)
 					continue
 				}
-
 				qs := url.Values{}
 				for j, p := range pp {
 					if i == j {
@@ -70,7 +88,11 @@ func main() {
 					}
 				}
 				u.RawQuery = qs.Encode()
-				fmt.Printf("%s\n", u)
+
+				// Use a buffered writer to write the modified URL to stdout
+				w := bufio.NewWriter(os.Stdout)
+				fmt.Fprintln(w, u)
+				w.Flush()
 			}
 		} else {
 			qs := url.Values{}
@@ -84,7 +106,10 @@ func main() {
 
 			u.RawQuery = qs.Encode()
 
-			fmt.Printf("%s\n", u)
+			// Use a buffered writer to write the modified URL to stdout
+			w := bufio.NewWriter(os.Stdout)
+			fmt.Fprintln(w, u)
+			w.Flush()
 		}
 	}
 }

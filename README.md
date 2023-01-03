@@ -10,15 +10,19 @@ go install github.com/xhzeem/paramix@latest
 ## Flags
 
 ```python
--r  [Relace Mode]  Replace the value instead of appending it.
--s  [Single Mode]  Modify the parameters one by one.
+  -v  [val]  Set the custom value to modify the URLs upon
+  -p  [val]  Add a custom parameter to the URL
+  -d         URL decode the values of the paramters
+  -r         Replace the value instead of appending it
+  -s         Modify the single parameter at a time
 ```
 
 ## Usage
 ```bash
-➜ xhzeem $ echo "http://xhzeem.me/?x=1&y=2&z=3" | paramix -s xhzeem
+➜ xhzeem $ echo "http://xhzeem.me/?x=1&y=2&z=3" | paramix -s -v xhzeem -p new param
 
-http://xhzeem.me/?x=1xhzeem&y=2&z=3
-http://xhzeem.me/?x=1&y=2xhzeem&z=3
-http://xhzeem.me/?x=1&y=2&z=3xhzeem
+http://xhzeem.me/?added=xhzeem&x=1&y=2&z=3
+http://xhzeem.me/?added=&x=1xhzeem&y=2&z=3
+http://xhzeem.me/?added=&x=1&y=2xhzeem&z=3
+http://xhzeem.me/?added=&x=1&y=2&z=3xhzeem
 ```

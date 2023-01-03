@@ -1,5 +1,5 @@
-# paramix
-An enhanced replacement for [@tomnomnom/qsreplace](https://github.com/tomnomnom/qsreplace/)
+# Paramix
+Paramix is Golang project built to help in bug bounty and penetration testing for modifying and cleaning the URLs of some targets focusing on the parameters of URLs. It reads a list of URLs from stdin, performs the specified actions on them, and then returns the modified URLs in stdout. It can add, remove, or modify the values of parameters, and it can also URL-decode the values. It can operate on all parameters at once, or on specific ones specified by the user. It can also keep URLs with no parameters, replace the values of parameters or append to them.
 
 
 ## Install
@@ -26,3 +26,6 @@ go install github.com/xhzeem/paramix@latest
 http://xhzeem.me/?a=xss&x=1
 http://xhzeem.me/?a=xss&x=1xss
 ```
+
+## Thanks
+-  @tomnomnom This project uses some code from his tool [qsreplace](https://github.com/tomnomnom/qsreplace/).

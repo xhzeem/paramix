@@ -14,7 +14,7 @@ go install github.com/xhzeem/paramix@latest
   -p  [val]  Add a custom parameter to the URL
   -d         URL decode the values of the paramters
   -r         Replace the value instead of appending it
-  -s         Modify the single parameter at a time
+  -s         Modify a single parameter at a time
 ```
 
 ## Usage

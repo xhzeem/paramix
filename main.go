@@ -67,7 +67,9 @@ func main() {
 				u.RawQuery += "&"
 			}
 			// Trim the trailing ampersand
-			u.RawQuery = u.RawQuery[:len(u.RawQuery)-1]
+			if u.RawQuery != "" {
+				u.RawQuery = u.RawQuery[:len(u.RawQuery)-1]
+			}
 			if decodeMode {
 				u.RawQuery, _ = url.QueryUnescape(u.RawQuery)
 			}

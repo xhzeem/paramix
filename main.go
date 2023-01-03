@@ -49,7 +49,7 @@ func main() {
 
 		// Remove parameters from the URL if the `r` flag is specified
 		delParams := strings.Split(rmParam, ",")
-		if u.RawQuery != "" {
+		if u.RawQuery != "" && rmParam != "" {
 			qs := u.Query()
 			for _, param := range delParams {
 				if _, exists := qs[param]; exists {
@@ -75,20 +75,22 @@ func main() {
 
 		// Add parameters to the URL if the `a` flag is specified
 		newParams := strings.Split(addParam, ",")
-		for _, param := range newParams {
-			if u.RawQuery == "" {
-				// No parameters in the URL, so just add the new parameter
-				u.RawQuery = param + "=" + newValue
-			} else {
-				// There are already parameters in the URL, so check if the specified parameter exists
-				qs := u.Query()
-				if _, exists := qs[param]; !exists {
-					// The parameter doesn't exist, so add it
-					qs.Set(param, newValue)
+		if addParam != "" {
+			for _, param := range newParams {
+				if u.RawQuery == "" {
+					// No parameters in the URL, so just add the new parameter
+					u.RawQuery = param + "=" + newValue
+				} else {
+					// There are already parameters in the URL, so check if the specified parameter exists
+					qs := u.Query()
+					if _, exists := qs[param]; !exists {
+						// The parameter doesn't exist, so add it
+						qs.Set(param, newValue)
 
-					u.RawQuery = qs.Encode()
-					if decodeMode {
-						u.RawQuery, _ = url.QueryUnescape(u.RawQuery)
+						u.RawQuery = qs.Encode()
+						if decodeMode {
+							u.RawQuery, _ = url.QueryUnescape(u.RawQuery)
+						}
 					}
 				}
 			}

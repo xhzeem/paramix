@@ -1,5 +1,5 @@
 # paramix
-An enhanced version of [@tomnomnom/qsreplace](https://github.com/tomnomnom/qsreplace/) that support parameter-by-parameter modification
+An enhanced version of [@tomnomnom/qsreplace](https://github.com/tomnomnom/qsreplace/)
 
 
 ## Install

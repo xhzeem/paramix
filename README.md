@@ -1,5 +1,5 @@
 # paramix
-An enhanced version of [@tomnomnom/qsreplace](https://github.com/tomnomnom/qsreplace/)
+An enhanced replacement for [@tomnomnom/qsreplace](https://github.com/tomnomnom/qsreplace/)
 
 
 ## Install

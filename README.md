@@ -10,12 +10,12 @@ go install github.com/xhzeem/paramix@latest
 ## Flags
 
 ```python
-  -v  [str]   Set the custom value to modify the URLs upon
-  -p  [str]   Add a custom parameter to the URL 
-  -d          URL decode the values of the paramters
-  -k          Keep the URLs that have no paramters
+  -v  [str]   Value to modify the parameters upon
+  -p  [str]   Add a custom parameter to the URLs 
+  -d          URL decode the values of the parameters
   -m          Modify all parameters at once
-  -r          Replace the value instead of appending it
+  -r          Replace the value instead of appending
+  -k          Keep the URLs with no parameters
 ```
 
 ## Usage

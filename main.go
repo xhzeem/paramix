@@ -16,10 +16,10 @@ func main() {
 	flag.StringVar(&newValue, "v", "", "Value to modify the parameters upon")
 
 	var addParam string
-	flag.StringVar(&addParam, "a", "", "Add custom parameters to the URLs, comma seprated")
+	flag.StringVar(&addParam, "a", "", "Add custom parameters to the URLs, comma separated")
 
 	var rmParam string
-	flag.StringVar(&rmParam, "r", "", "Remove a parameter from the URLs, comma seprated")
+	flag.StringVar(&rmParam, "r", "", "Remove parameters from the URLs, comma separated")
 
 	var overrideMode bool
 	flag.BoolVar(&overrideMode, "o", false, "Replace the value instead of appending")
@@ -45,27 +45,6 @@ func main() {
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "failed to parse url %s [%s]\n", sc.Text(), err)
 			continue
-		}
-
-		// Add parameters to the URL if the `a` flag is specified
-		newParams := strings.Split(addParam, ",")
-		for _, param := range newParams {
-			if u.RawQuery == "" {
-				// No parameters in the URL, so just add the new parameter
-				u.RawQuery = param + "=" + newValue
-			} else {
-				// There are already parameters in the URL, so check if the specified parameter exists
-				qs := u.Query()
-				if _, exists := qs[param]; !exists {
-					// The parameter doesn't exist, so add it
-					qs.Set(param, newValue)
-
-					u.RawQuery = qs.Encode()
-					if decodeMode {
-						u.RawQuery, _ = url.QueryUnescape(u.RawQuery)
-					}
-				}
-			}
 		}
 
 		// Remove parameters from the URL if the `r` flag is specified
@@ -94,6 +73,27 @@ func main() {
 			}
 		}
 
+		// Add parameters to the URL if the `a` flag is specified
+		newParams := strings.Split(addParam, ",")
+		for _, param := range newParams {
+			if u.RawQuery == "" {
+				// No parameters in the URL, so just add the new parameter
+				u.RawQuery = param + "=" + newValue
+			} else {
+				// There are already parameters in the URL, so check if the specified parameter exists
+				qs := u.Query()
+				if _, exists := qs[param]; !exists {
+					// The parameter doesn't exist, so add it
+					qs.Set(param, newValue)
+
+					u.RawQuery = qs.Encode()
+					if decodeMode {
+						u.RawQuery, _ = url.QueryUnescape(u.RawQuery)
+					}
+				}
+			}
+		}
+		
 		param := make([]string, 0)
 		for p, _ := range u.Query() {
 			param = append(param, p)

@@ -16,10 +16,13 @@ func main() {
 	flag.StringVar(&newValue, "v", "", "Value to modify the parameters upon")
 
 	var addParam string
-	flag.StringVar(&addParam, "p", "", "Add a custom parameter to the URLs")
+	flag.StringVar(&addParam, "a", "", "Add custom parameters to the URLs, comma seprated")
 
-	var replaceMode bool
-	flag.BoolVar(&replaceMode, "r", false, "Replace the value instead of appending")
+	var rmParam string
+	flag.StringVar(&rmParam, "r", "", "Remove a parameter from the URLs, comma seprated")
+
+	var overrideMode bool
+	flag.BoolVar(&overrideMode, "o", false, "Replace the value instead of appending")
 
 	var multiMode bool
 	flag.BoolVar(&multiMode, "m", false, "Modify all parameters at once")
@@ -44,23 +47,50 @@ func main() {
 			continue
 		}
 
-		// Add the parameter to the URL if the `p` flag is specified
-		if addParam != "" {
+		// Add parameters to the URL if the `a` flag is specified
+		newParams := strings.Split(addParam, ",")
+		for _, param := range newParams {
 			if u.RawQuery == "" {
 				// No parameters in the URL, so just add the new parameter
-				u.RawQuery = addParam + "=" + newValue
+				u.RawQuery = param + "=" + newValue
 			} else {
 				// There are already parameters in the URL, so check if the specified parameter exists
 				qs := u.Query()
-				if _, exists := qs[addParam]; !exists {
+				if _, exists := qs[param]; !exists {
 					// The parameter doesn't exist, so add it
-					qs.Set(addParam, newValue)
+					qs.Set(param, newValue)
 
 					u.RawQuery = qs.Encode()
 					if decodeMode {
 						u.RawQuery, _ = url.QueryUnescape(u.RawQuery)
 					}
 				}
+			}
+		}
+
+		// Remove parameters from the URL if the `r` flag is specified
+		delParams := strings.Split(rmParam, ",")
+		if u.RawQuery != "" {
+			qs := u.Query()
+			for _, param := range delParams {
+				if _, exists := qs[param]; exists {
+					// The parameter exists, so delete it
+					delete(qs, param)
+				}
+			}
+			// Rebuild the query string without the deleted parameter(s)
+			u.RawQuery = ""
+			for p, v := range qs {
+				u.RawQuery += p
+				if v[0] != "" {
+					u.RawQuery += "=" + v[0]
+				}
+				u.RawQuery += "&"
+			}
+			// Trim the trailing ampersand
+			u.RawQuery = u.RawQuery[:len(u.RawQuery)-1]
+			if decodeMode {
+				u.RawQuery, _ = url.QueryUnescape(u.RawQuery)
 			}
 		}
 
@@ -73,7 +103,7 @@ func main() {
 
 		key := fmt.Sprintf("%s%s?%s", u.Hostname(), u.EscapedPath(), strings.Join(param, "&"))
 
-		// Only output each host + path + params combination once
+		// Only output each host + path + newParams combination once
 		if _, exists := seen[key]; exists {
 			continue
 		}
@@ -83,7 +113,7 @@ func main() {
 		if multiMode {
 			qs := url.Values{}
 			for p, val := range u.Query() {
-				if replaceMode {
+				if overrideMode {
 					qs.Set(p, newValue)
 				} else {
 					if (p != addParam) {
@@ -108,6 +138,7 @@ func main() {
 		} else {
 			// Save the original URL
 			originalURL := u.String()
+			lastUrl := ""
 
 			for i, _ := range param {
 
@@ -118,10 +149,10 @@ func main() {
 
 				for j, p := range param {
 					if i == j {
-						if replaceMode {
+						if overrideMode {
 							qs.Set(p, newValue)
 						} else {
-							if (p != addParam) {
+							if (u.Query().Get(p) != newValue) {
 								qs.Set(p, u.Query().Get(p)+newValue)
 							} else {
 								qs.Set(p, newValue)
@@ -137,9 +168,13 @@ func main() {
 					u.RawQuery, _ = url.QueryUnescape(u.RawQuery)
 				}
 
-				w := bufio.NewWriter(os.Stdout)
-				fmt.Fprintln(w, u)
-				w.Flush()
+				// Make sure no duplicates
+				if lastUrl != u.String() {
+					w := bufio.NewWriter(os.Stdout)
+					fmt.Fprintln(w, u)
+					w.Flush()
+				}
+				lastUrl = u.String()
 			}
 			if keepAllUrls && (u.RawQuery == "") {
 				w := bufio.NewWriter(os.Stdout)

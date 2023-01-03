@@ -19,7 +19,7 @@ go install github.com/xhzeem/paramix@latest
 
 ## Usage
 ```bash
-➜ xhzeem $ echo "http://xhzeem.me/?x=1&y=2&z=3" | paramix -s -v xhzeem -p new param
+➜ xhzeem $ echo "http://xhzeem.me/?x=1&y=2&z=3" | paramix -s -v xhzeem -p added
 
 http://xhzeem.me/?added=xhzeem&x=1&y=2&z=3
 http://xhzeem.me/?added=&x=1xhzeem&y=2&z=3

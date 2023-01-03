@@ -21,11 +21,15 @@ func main() {
 	var replaceMode bool
 	flag.BoolVar(&replaceMode, "r", false, "Replace the value instead of appending it")
 
-	var singleMode bool
-	flag.BoolVar(&singleMode, "s", false, "Modify a single parameter at a time")
+	var multiMode bool
+	flag.BoolVar(&multiMode, "m", false, "Modify all parameters at once")
 
 	var decodeMode bool
-	flag.BoolVar(&decodeMode, "d", false, "URL decode the values of the paramters")
+	flag.BoolVar(&decodeMode, "d", false, "URL decode the values of the parameters")
+
+	var keepAllUrls bool
+	flag.BoolVar(&keepAllUrls, "k", false, "Keep the URLs that have no parameters")
+
 
 	flag.Parse()
 
@@ -51,10 +55,10 @@ func main() {
 				if _, exists := qs[addParam]; !exists {
 					// The parameter doesn't exist, so add it
 					qs.Set(addParam, newValue)
-					if (decodeMode){
-						u.RawQuery, _ = url.QueryUnescape(qs.Encode())
-					} else {
-						u.RawQuery = qs.Encode()
+
+					u.RawQuery = qs.Encode()
+					if decodeMode {
+						u.RawQuery, _ = url.QueryUnescape(u.RawQuery)
 					}
 				}
 			}
@@ -73,11 +77,35 @@ func main() {
 		if _, exists := seen[key]; exists {
 			continue
 		}
+
 		seen[key] = true
 
-		// Modify the parameters one by one if the `-s` flag is set
-		if singleMode {
+		if multiMode {
+			qs := url.Values{}
+			for p, val := range u.Query() {
+				if replaceMode {
+					qs.Set(p, newValue)
+				} else {
+					if (p != addParam) {
+						qs.Set(p, val[0]+newValue)
+					} else {
+						qs.Set(p, newValue)
+					}
+				}
+			}
 
+			u.RawQuery = qs.Encode()
+			if decodeMode {
+				u.RawQuery, _ = url.QueryUnescape(u.RawQuery)
+			}
+
+			if !(u.RawQuery == "") || keepAllUrls {
+				w := bufio.NewWriter(os.Stdout)
+				fmt.Fprintln(w, u)
+				w.Flush()
+			}
+			
+		} else {
 			// Save the original URL
 			originalURL := u.String()
 
@@ -87,12 +115,13 @@ func main() {
 				u, _ = url.Parse(originalURL)
 
 				qs := url.Values{}
+
 				for j, p := range param {
 					if i == j {
 						if replaceMode {
 							qs.Set(p, newValue)
 						} else {
-							if (u.Query().Get(p) != newValue) {
+							if (p != addParam) {
 								qs.Set(p, u.Query().Get(p)+newValue)
 							} else {
 								qs.Set(p, newValue)
@@ -102,37 +131,21 @@ func main() {
 						qs.Set(p, u.Query().Get(p))
 					}
 				}
-				if (decodeMode){
-					u.RawQuery, _ = url.QueryUnescape(qs.Encode())
-				} else {
-					u.RawQuery = qs.Encode()
+
+				u.RawQuery = qs.Encode()
+				if decodeMode {
+					u.RawQuery, _ = url.QueryUnescape(u.RawQuery)
 				}
 
-				// Use a buffered writer to write the modified URL to stdout
 				w := bufio.NewWriter(os.Stdout)
 				fmt.Fprintln(w, u)
 				w.Flush()
 			}
-		} else {
-			qs := url.Values{}
-			for param, val := range u.Query() {
-				if replaceMode {
-					qs.Set(param, newValue)
-				} else {
-					qs.Set(param, val[0]+newValue)
-				}
+			if keepAllUrls && (u.RawQuery == "") {
+				w := bufio.NewWriter(os.Stdout)
+				fmt.Fprintln(w, u)
+				w.Flush()
 			}
-
-			if (decodeMode){
-				u.RawQuery, _ = url.QueryUnescape(qs.Encode())
-			} else {
-				u.RawQuery = qs.Encode()
-			}
-
-			// Use a buffered writer to write the modified URL to stdout
-			w := bufio.NewWriter(os.Stdout)
-			fmt.Fprintln(w, u)
-			w.Flush()
 		}
 	}
 }

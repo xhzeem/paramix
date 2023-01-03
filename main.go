@@ -13,22 +13,22 @@ import (
 func main() {
 	
 	var newValue string
-	flag.StringVar(&newValue, "v", "", "Set the custom value to modify the URLs upon")
+	flag.StringVar(&newValue, "v", "", "Value to modify the parameters upon")
 
 	var addParam string
-	flag.StringVar(&addParam, "p", "", "Add a custom parameter to the URL")
+	flag.StringVar(&addParam, "p", "", "Add a custom parameter to the URLs")
 
 	var replaceMode bool
-	flag.BoolVar(&replaceMode, "r", false, "Replace the value instead of appending it")
+	flag.BoolVar(&replaceMode, "r", false, "Replace the value instead of appending")
 
 	var multiMode bool
 	flag.BoolVar(&multiMode, "m", false, "Modify all parameters at once")
 
 	var decodeMode bool
-	flag.BoolVar(&decodeMode, "d", false, "URL decode the values of the parameters")
+	flag.BoolVar(&decodeMode, "d", false, "URLdecode the values of the parameters")
 
 	var keepAllUrls bool
-	flag.BoolVar(&keepAllUrls, "k", false, "Keep the URLs that have no parameters")
+	flag.BoolVar(&keepAllUrls, "k", false, "Keep the URLs with no parameters")
 
 
 	flag.Parse()

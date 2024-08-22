@@ -40,13 +40,15 @@ func main() {
 	flag.BoolVar(&blacklistMode, "b", false, "Enable blacklist to remove static URLs")
 
 	var ext string
-	flag.StringVar(&ext, "e", "", "Blacklist regex string (default is static extensions)")
+	flag.StringVar(&ext, "e", "", "Blacklist extensions, comma-separated (default is common static file extensions)")
 
 	flag.Parse()
 
 	if ext == "" {
-		ext = `(?i)\.(png|apng|bmp|gif|ico|cur|jpg|jpeg|jfif|pjp|pjpeg|svg|tif|tiff|webp|xbm|3gp|aac|flac|mpg|mpeg|mp3|mp4|m4a|m4v|m4p|oga|ogg|ogv|mov|wav|webm|eot|woff|woff2|ttf|otf|css)(?:\?|#|$)`
+		ext = "png,apng,bmp,gif,ico,cur,jpg,jpeg,jfif,pjp,pjpeg,svg,tif,tiff,webp,xbm,3gp,aac,flac,mpg,mpeg,mp3,mp4,m4a,m4v,m4p,oga,ogg,ogv,mov,wav,webm,eot,woff,woff2,ttf,otf,css"
 	}
+
+	blacklist := buildBlacklistRegex(ext)
 
 	seen := make(map[string]bool)
 
@@ -58,41 +60,41 @@ func main() {
 			continue
 		}
 
-		if blacklistMode && isBlacklisted(u.String(), ext) {
-			continue
-		}
-
 		if splitMode {
-			processPathLevels(u, seen, onlyParamURLs, blacklistMode, ext)
-			// Process the original URL with parameters
-			processURL(u, seen, newValue, addParam, rmParam, overrideMode, multiMode, decodeMode, onlyParamURLs, splitMode)
+			processPathLevels(u, seen, blacklistMode, blacklist)
+			// Process the original URL with parameters only if it has parameters
+			if u.RawQuery != "" {
+				processURL(u, seen, newValue, addParam, rmParam, overrideMode, multiMode, decodeMode, onlyParamURLs, splitMode, blacklistMode, blacklist)
+			}
 		} else {
-			processURL(u, seen, newValue, addParam, rmParam, overrideMode, multiMode, decodeMode, onlyParamURLs, splitMode)
+			processURL(u, seen, newValue, addParam, rmParam, overrideMode, multiMode, decodeMode, onlyParamURLs, splitMode, blacklistMode, blacklist)
 		}
 	}
 }
 
-func processPathLevels(u *url.URL, seen map[string]bool, onlyParamURLs, blacklistMode bool, ext string) {
+func processPathLevels(u *url.URL, seen map[string]bool, blacklistMode bool, blacklist *regexp.Regexp) {
 	paths := strings.Split(strings.Trim(u.Path, "/"), "/")
-	for i := 0; i < len(paths); i++ {
-		subPath := "/" + strings.Join(paths[:i+1], "/")
+	for i := 0; i <= len(paths); i++ {
+		subPath := "/" + strings.Join(paths[:i], "/")
 		subURL := *u // Create a copy of the URL
 		subURL.Path = subPath
 		subURL.RawQuery = "" // Remove query parameters for split URLs
 
-		if blacklistMode && isBlacklisted(subURL.String(), ext) {
-			continue
-		}
-
 		key := fmt.Sprintf("%s%s", subURL.Hostname(), subURL.EscapedPath())
 		if _, exists := seen[key]; !exists {
 			seen[key] = true
-			outputURL(&subURL, onlyParamURLs, true)
+			if !blacklistMode || !isBlacklisted(subURL.String(), blacklist) {
+				outputURL(&subURL, false, true)
+			}
 		}
 	}
 }
 
-func processURL(u *url.URL, seen map[string]bool, newValue, addParam, rmParam string, overrideMode, multiMode, decodeMode, onlyParamURLs, splitMode bool) {
+func processURL(u *url.URL, seen map[string]bool, newValue, addParam, rmParam string, overrideMode, multiMode, decodeMode, onlyParamURLs, splitMode, blacklistMode bool, blacklist *regexp.Regexp) {
+	if blacklistMode && isBlacklisted(u.String(), blacklist) {
+		return
+	}
+
 	originalQuery := u.RawQuery
 
 	// Remove parameters
@@ -123,11 +125,8 @@ func processURL(u *url.URL, seen map[string]bool, newValue, addParam, rmParam st
 		outputURL(u, onlyParamURLs, splitMode)
 	} else if len(param) > 0 {
 		modifyParametersIndividually(u, param, newValue, overrideMode, decodeMode, onlyParamURLs, splitMode)
-	} else {
-		// If there are no parameters and we're not in split mode, output the URL
-		if !splitMode {
-			outputURL(u, onlyParamURLs, splitMode)
-		}
+	} else if !splitMode {
+		outputURL(u, onlyParamURLs, splitMode)
 	}
 
 	// Restore the original query
@@ -248,10 +247,16 @@ func outputURL(u *url.URL, onlyParamURLs, splitMode bool) {
 	}
 }
 
-func isBlacklisted(raw, ext string) bool {
-	r, err := regexp.Compile(ext)
-	if err != nil {
-		return false
+func buildBlacklistRegex(ext string) *regexp.Regexp {
+	extensions := strings.Split(ext, ",")
+	for i, e := range extensions {
+		extensions[i] = regexp.QuoteMeta(strings.TrimSpace(e))
 	}
-	return r.MatchString(raw)
+	pattern := fmt.Sprintf(`(?i)\.(%s)(?:\?|#|$)`, strings.Join(extensions, "|"))
+	r, _ := regexp.Compile(pattern)
+	return r
+}
+
+func isBlacklisted(raw string, blacklist *regexp.Regexp) bool {
+	return blacklist.MatchString(raw)
 }

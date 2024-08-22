@@ -14,9 +14,11 @@ go install github.com/xhzeem/paramix@latest
   -r *str   Remove a parameter from the URLs, comma seprated
   -v *str   Value to modify the parameters upon
   -d	    URLdecode the values of the parameters
-  -k	    Keep the URLs with no parameters
+  -p	    Only keep URLs with parameters
   -m	    Modify all parameters at once
   -o	    Replace the value instead of appending
+  -s      Split URL into all path levels
+  -b      Enable blacklist to remove static URLs
 ```
 
 ## Usage

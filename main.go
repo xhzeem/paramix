@@ -6,12 +6,12 @@ import (
 	"fmt"
 	"net/url"
 	"os"
+	"regexp"
 	"sort"
 	"strings"
 )
 
 func main() {
-	
 	var newValue string
 	flag.StringVar(&newValue, "v", "", "Value to modify the parameters upon")
 
@@ -30,15 +30,26 @@ func main() {
 	var decodeMode bool
 	flag.BoolVar(&decodeMode, "d", false, "URLdecode the values of the parameters")
 
-	var keepAllUrls bool
-	flag.BoolVar(&keepAllUrls, "k", false, "Keep the URLs with no parameters")
+	var onlyParamURLs bool
+	flag.BoolVar(&onlyParamURLs, "p", false, "Only keep URLs with parameters")
 
+	var splitMode bool
+	flag.BoolVar(&splitMode, "s", false, "Split URL into all path levels")
+
+	var blacklistMode bool
+	flag.BoolVar(&blacklistMode, "b", false, "Enable blacklist to remove static URLs")
+
+	var ext string
+	flag.StringVar(&ext, "e", "", "Blacklist regex string (default is static extensions)")
 
 	flag.Parse()
 
+	if ext == "" {
+		ext = `(?i)\.(png|apng|bmp|gif|ico|cur|jpg|jpeg|jfif|pjp|pjpeg|svg|tif|tiff|webp|xbm|3gp|aac|flac|mpg|mpeg|mp3|mp4|m4a|m4v|m4p|oga|ogg|ogv|mov|wav|webm|eot|woff|woff2|ttf|otf|css)(?:\?|#|$)`
+	}
+
 	seen := make(map[string]bool)
 
-	// read URLs on stdin, then modify the values in the query string with some user-provided value
 	sc := bufio.NewScanner(os.Stdin)
 	for sc.Scan() {
 		u, err := url.Parse(sc.Text())
@@ -47,144 +58,200 @@ func main() {
 			continue
 		}
 
-		// Remove parameters from the URL if the `r` flag is specified
-		delParams := strings.Split(rmParam, ",")
-		if u.RawQuery != "" && rmParam != "" {
-			qs := u.Query()
-			for _, param := range delParams {
-				if _, exists := qs[param]; exists {
-					// The parameter exists, so delete it
-					delete(qs, param)
-				}
-			}
-			// Rebuild the query string without the deleted parameter(s)
-			u.RawQuery = ""
-			for p, v := range qs {
-				u.RawQuery += p
-				if v[0] != "" {
-					u.RawQuery += "=" + v[0]
-				}
-				u.RawQuery += "&"
-			}
-			// Trim the trailing ampersand
-			if u.RawQuery != "" {
-				u.RawQuery = u.RawQuery[:len(u.RawQuery)-1]
-			}
-			if decodeMode {
-				u.RawQuery, _ = url.QueryUnescape(u.RawQuery)
-			}
-		}
-
-		// Add parameters to the URL if the `a` flag is specified
-		newParams := strings.Split(addParam, ",")
-		if addParam != "" {
-			for _, param := range newParams {
-				if u.RawQuery == "" {
-					// No parameters in the URL, so just add the new parameter
-					u.RawQuery = param + "=" + newValue
-				} else {
-					// There are already parameters in the URL, so check if the specified parameter exists
-					qs := u.Query()
-					if _, exists := qs[param]; !exists {
-						// The parameter doesn't exist, so add it
-						qs.Set(param, newValue)
-
-						u.RawQuery = qs.Encode()
-						if decodeMode {
-							u.RawQuery, _ = url.QueryUnescape(u.RawQuery)
-						}
-					}
-				}
-			}
-		}
-		
-		param := make([]string, 0)
-		for p, _ := range u.Query() {
-			param = append(param, p)
-		}
-
-		sort.Strings(param)
-
-		key := fmt.Sprintf("%s%s?%s", u.Hostname(), u.EscapedPath(), strings.Join(param, "&"))
-
-		// Only output each host + path + newParams combination once
-		if _, exists := seen[key]; exists {
+		if blacklistMode && isBlacklisted(u.String(), ext) {
 			continue
 		}
 
-		seen[key] = true
+		if splitMode {
+			processPathLevels(u, seen, onlyParamURLs, blacklistMode, ext)
+			// Process the original URL with parameters
+			processURL(u, seen, newValue, addParam, rmParam, overrideMode, multiMode, decodeMode, onlyParamURLs, splitMode)
+		} else {
+			processURL(u, seen, newValue, addParam, rmParam, overrideMode, multiMode, decodeMode, onlyParamURLs, splitMode)
+		}
+	}
+}
 
-		if multiMode {
-			qs := url.Values{}
-			for p, val := range u.Query() {
-				if overrideMode {
-					qs.Set(p, newValue)
-				} else {
-					if (p != addParam) {
-						qs.Set(p, val[0]+newValue)
-					} else {
-						qs.Set(p, newValue)
-					}
-				}
-			}
+func processPathLevels(u *url.URL, seen map[string]bool, onlyParamURLs, blacklistMode bool, ext string) {
+	paths := strings.Split(strings.Trim(u.Path, "/"), "/")
+	for i := 0; i < len(paths); i++ {
+		subPath := "/" + strings.Join(paths[:i+1], "/")
+		subURL := *u // Create a copy of the URL
+		subURL.Path = subPath
+		subURL.RawQuery = "" // Remove query parameters for split URLs
 
-			u.RawQuery = qs.Encode()
+		if blacklistMode && isBlacklisted(subURL.String(), ext) {
+			continue
+		}
+
+		key := fmt.Sprintf("%s%s", subURL.Hostname(), subURL.EscapedPath())
+		if _, exists := seen[key]; !exists {
+			seen[key] = true
+			outputURL(&subURL, onlyParamURLs, true)
+		}
+	}
+}
+
+func processURL(u *url.URL, seen map[string]bool, newValue, addParam, rmParam string, overrideMode, multiMode, decodeMode, onlyParamURLs, splitMode bool) {
+	originalQuery := u.RawQuery
+
+	// Remove parameters
+	if u.RawQuery != "" && rmParam != "" {
+		removeParameters(u, strings.Split(rmParam, ","), decodeMode)
+	}
+
+	// Add parameters
+	if addParam != "" {
+		addParameters(u, strings.Split(addParam, ","), newValue, decodeMode)
+	}
+
+	param := make([]string, 0)
+	for p := range u.Query() {
+		param = append(param, p)
+	}
+	sort.Strings(param)
+
+	key := fmt.Sprintf("%s%s?%s", u.Hostname(), u.EscapedPath(), strings.Join(param, "&"))
+
+	if _, exists := seen[key]; exists {
+		return
+	}
+	seen[key] = true
+
+	if multiMode {
+		modifyAllParameters(u, newValue, addParam, overrideMode, decodeMode)
+		outputURL(u, onlyParamURLs, splitMode)
+	} else if len(param) > 0 {
+		modifyParametersIndividually(u, param, newValue, overrideMode, decodeMode, onlyParamURLs, splitMode)
+	} else {
+		// If there are no parameters and we're not in split mode, output the URL
+		if !splitMode {
+			outputURL(u, onlyParamURLs, splitMode)
+		}
+	}
+
+	// Restore the original query
+	u.RawQuery = originalQuery
+}
+
+func removeParameters(u *url.URL, delParams []string, decodeMode bool) {
+	qs := u.Query()
+	for _, param := range delParams {
+		qs.Del(param)
+	}
+	u.RawQuery = encodeQueryWithoutEmptyValues(qs)
+	if decodeMode {
+		u.RawQuery, _ = url.QueryUnescape(u.RawQuery)
+	}
+}
+
+func addParameters(u *url.URL, newParams []string, newValue string, decodeMode bool) {
+	for _, param := range newParams {
+		qs := u.Query()
+		if _, exists := qs[param]; !exists {
+			qs.Set(param, newValue)
+			u.RawQuery = encodeQueryWithoutEmptyValues(qs)
 			if decodeMode {
 				u.RawQuery, _ = url.QueryUnescape(u.RawQuery)
 			}
+		}
+	}
+}
 
-			if !(u.RawQuery == "") || keepAllUrls {
-				w := bufio.NewWriter(os.Stdout)
-				fmt.Fprintln(w, u)
-				w.Flush()
-			}
-			
+func modifyAllParameters(u *url.URL, newValue, addParam string, overrideMode, decodeMode bool) {
+	qs := u.Query()
+	for p, val := range qs {
+		if overrideMode {
+			qs.Set(p, newValue)
 		} else {
-			// Save the original URL
-			originalURL := u.String()
-			lastUrl := ""
-
-			for i, _ := range param {
-
-				// Restore the original URL
-				u, _ = url.Parse(originalURL)
-
-				qs := url.Values{}
-
-				for j, p := range param {
-					if i == j {
-						if overrideMode {
-							qs.Set(p, newValue)
-						} else {
-							if (u.Query().Get(p) != newValue) {
-								qs.Set(p, u.Query().Get(p)+newValue)
-							} else {
-								qs.Set(p, newValue)
-							}
-						}
-					} else {
-						qs.Set(p, u.Query().Get(p))
-					}
-				}
-
-				u.RawQuery = qs.Encode()
-				if decodeMode {
-					u.RawQuery, _ = url.QueryUnescape(u.RawQuery)
-				}
-
-				// Make sure no duplicates
-				if lastUrl != u.String() {
-					w := bufio.NewWriter(os.Stdout)
-					fmt.Fprintln(w, u)
-					w.Flush()
-				}
-				lastUrl = u.String()
-			}
-			if keepAllUrls && (u.RawQuery == "") {
-				w := bufio.NewWriter(os.Stdout)
-				fmt.Fprintln(w, u)
-				w.Flush()
+			if p != addParam && len(val) > 0 {
+				qs.Set(p, val[0]+newValue)
+			} else {
+				qs.Set(p, newValue)
 			}
 		}
 	}
+	u.RawQuery = encodeQueryWithoutEmptyValues(qs)
+	if decodeMode {
+		u.RawQuery, _ = url.QueryUnescape(u.RawQuery)
+	}
+}
+
+func modifyParametersIndividually(u *url.URL, param []string, newValue string, overrideMode, decodeMode, onlyParamURLs, splitMode bool) {
+	originalURL := u.String()
+	lastUrl := ""
+
+	for i := range param {
+		u, _ := url.Parse(originalURL)
+		qs := u.Query()
+
+		for j, p := range param {
+			if i == j {
+				if overrideMode {
+					qs.Set(p, newValue)
+				} else {
+					if qs.Get(p) != newValue {
+						if qs.Get(p) != "" {
+							qs.Set(p, qs.Get(p)+newValue)
+						} else {
+							qs.Set(p, newValue)
+						}
+					}
+				}
+			}
+		}
+
+		u.RawQuery = encodeQueryWithoutEmptyValues(qs)
+		if decodeMode {
+			u.RawQuery, _ = url.QueryUnescape(u.RawQuery)
+		}
+
+		if lastUrl != u.String() {
+			outputURL(u, onlyParamURLs, splitMode)
+		}
+		lastUrl = u.String()
+	}
+}
+
+func encodeQueryWithoutEmptyValues(v url.Values) string {
+	if v == nil {
+		return ""
+	}
+	var buf strings.Builder
+	keys := make([]string, 0, len(v))
+	for k := range v {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		vs := v[k]
+		keyEscaped := url.QueryEscape(k)
+		for _, v := range vs {
+			if buf.Len() > 0 {
+				buf.WriteByte('&')
+			}
+			buf.WriteString(keyEscaped)
+			if v != "" {
+				buf.WriteByte('=')
+				buf.WriteString(url.QueryEscape(v))
+			}
+		}
+	}
+	return buf.String()
+}
+
+func outputURL(u *url.URL, onlyParamURLs, splitMode bool) {
+	if !onlyParamURLs || u.RawQuery != "" {
+		w := bufio.NewWriter(os.Stdout)
+		fmt.Fprintln(w, u)
+		w.Flush()
+	}
+}
+
+func isBlacklisted(raw, ext string) bool {
+	r, err := regexp.Compile(ext)
+	if err != nil {
+		return false
+	}
+	return r.MatchString(raw)
 }

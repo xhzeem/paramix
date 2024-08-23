@@ -40,13 +40,9 @@ func main() {
 	flag.BoolVar(&blacklistMode, "b", false, "Enable blacklist to remove static URLs")
 
 	var ext string
-	flag.StringVar(&ext, "e", "", "Blacklist extensions, comma-separated (default is common static file extensions)")
+	flag.StringVar(&ext, "e", "png,apng,bmp,gif,ico,cur,jpg,jpeg,jfif,pjp,pjpeg,svg,tif,tiff,webp,xbm,3gp,aac,flac,mpg,mpeg,mp3,mp4,m4a,m4v,m4p,oga,ogg,ogv,mov,wav,webm,eot,woff,woff2,ttf,otf,css", "Blacklist extensions, comma-separated (default is common static file extensions)")
 
 	flag.Parse()
-
-	if ext == "" {
-		ext = "png,apng,bmp,gif,ico,cur,jpg,jpeg,jfif,pjp,pjpeg,svg,tif,tiff,webp,xbm,3gp,aac,flac,mpg,mpeg,mp3,mp4,m4a,m4v,m4p,oga,ogg,ogv,mov,wav,webm,eot,woff,woff2,ttf,otf,css"
-	}
 
 	blacklist := buildBlacklistRegex(ext)
 
@@ -57,6 +53,11 @@ func main() {
 		u, err := url.Parse(sc.Text())
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "failed to parse url %s [%s]\n", sc.Text(), err)
+			continue
+		}
+
+		// Only process HTTP and HTTPS URLs
+		if u.Scheme != "http" && u.Scheme != "https" {
 			continue
 		}
 
